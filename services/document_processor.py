@@ -19,7 +19,7 @@ class DocumentProcessor:
     def __init__(self):
         """Initialize the document processor with Pinecone and SentenceTransformers"""
         self.pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        self.pinecone_environment = os.getenv("PINECONE_ENVIRONMENT")
+        self.pinecone_host = os.getenv("PINECONE_HOST")
         self.pinecone_index_name = os.getenv("PINECONE_INDEX_NAME", "hackrx-documents")
         
         # Initialize sentence transformer for embeddings
@@ -40,26 +40,24 @@ class DocumentProcessor:
     def _init_pinecone(self):
         """Initialize Pinecone connection"""
         try:
-            pinecone.init(
-                api_key=self.pinecone_api_key,
-                environment=self.pinecone_environment
-            )
+            # Initialize Pinecone with modern client
+            from pinecone import Pinecone
+            pc = Pinecone(api_key=self.pinecone_api_key)
             
-            # Check if index exists, create if not
-            if self.pinecone_index_name not in pinecone.list_indexes():
-                logger.info(f"Creating Pinecone index: {self.pinecone_index_name}")
-                pinecone.create_index(
-                    name=self.pinecone_index_name,
-                    dimension=self.embedding_dimension,
-                    metric="cosine"
-                )
-            
-            self.index = pinecone.Index(self.pinecone_index_name)
+            # Connect to existing index using host
+            self.index = pc.Index(host=self.pinecone_host)
             logger.info("Pinecone initialized successfully")
             
         except Exception as e:
             logger.error(f"Error initializing Pinecone: {str(e)}")
-            raise
+            # Fallback to legacy initialization if available
+            try:
+                pinecone.init(api_key=self.pinecone_api_key)
+                self.index = pinecone.Index(self.pinecone_index_name)
+                logger.info("Pinecone initialized with legacy client")
+            except Exception as e2:
+                logger.error(f"Legacy Pinecone initialization also failed: {str(e2)}")
+                raise
     
     async def download_pdf(self, url: str) -> str:
         """Download PDF from URL and return the file path"""

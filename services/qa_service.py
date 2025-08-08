@@ -17,7 +17,7 @@ class QAService:
         """Initialize the QA service with Google Gemini and Pinecone"""
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        self.pinecone_environment = os.getenv("PINECONE_ENVIRONMENT")
+        self.pinecone_host = os.getenv("PINECONE_HOST")
         self.pinecone_index_name = os.getenv("PINECONE_INDEX_NAME", "hackrx-documents")
         
         # Initialize embeddings model (same as document processor)
@@ -45,17 +45,24 @@ Instructions:
     def _init_pinecone(self):
         """Initialize Pinecone connection"""
         try:
-            pinecone.init(
-                api_key=self.pinecone_api_key,
-                environment=self.pinecone_environment
-            )
+            # Initialize Pinecone with modern client
+            from pinecone import Pinecone
+            pc = Pinecone(api_key=self.pinecone_api_key)
             
-            self.index = pinecone.Index(self.pinecone_index_name)
+            # Connect to existing index using host
+            self.index = pc.Index(host=self.pinecone_host)
             logger.info("Pinecone initialized successfully for QA service")
             
         except Exception as e:
             logger.error(f"Error initializing Pinecone in QA service: {str(e)}")
-            raise
+            # Fallback to legacy initialization if available
+            try:
+                pinecone.init(api_key=self.pinecone_api_key)
+                self.index = pinecone.Index(self.pinecone_index_name)
+                logger.info("Pinecone initialized with legacy client for QA service")
+            except Exception as e2:
+                logger.error(f"Legacy Pinecone initialization also failed in QA service: {str(e2)}")
+                raise
     
     def create_question_embedding(self, question: str) -> List[float]:
         """Create embedding for the question"""
