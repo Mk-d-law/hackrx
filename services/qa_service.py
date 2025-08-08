@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List, Dict
-import pinecone
+from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 import httpx
@@ -46,7 +46,6 @@ Instructions:
         """Initialize Pinecone connection"""
         try:
             # Initialize Pinecone with modern client
-            from pinecone import Pinecone
             pc = Pinecone(api_key=self.pinecone_api_key)
             
             # Connect to existing index using host
@@ -55,14 +54,7 @@ Instructions:
             
         except Exception as e:
             logger.error(f"Error initializing Pinecone in QA service: {str(e)}")
-            # Fallback to legacy initialization if available
-            try:
-                pinecone.init(api_key=self.pinecone_api_key)
-                self.index = pinecone.Index(self.pinecone_index_name)
-                logger.info("Pinecone initialized with legacy client for QA service")
-            except Exception as e2:
-                logger.error(f"Legacy Pinecone initialization also failed in QA service: {str(e2)}")
-                raise
+            raise
     
     def create_question_embedding(self, question: str) -> List[float]:
         """Create embedding for the question"""

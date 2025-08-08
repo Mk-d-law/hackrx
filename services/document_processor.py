@@ -7,7 +7,7 @@ import logging
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
-import pinecone
+from pinecone import Pinecone
 import numpy as np
 from dotenv import load_dotenv
 
@@ -41,7 +41,6 @@ class DocumentProcessor:
         """Initialize Pinecone connection"""
         try:
             # Initialize Pinecone with modern client
-            from pinecone import Pinecone
             pc = Pinecone(api_key=self.pinecone_api_key)
             
             # Connect to existing index using host
@@ -50,14 +49,7 @@ class DocumentProcessor:
             
         except Exception as e:
             logger.error(f"Error initializing Pinecone: {str(e)}")
-            # Fallback to legacy initialization if available
-            try:
-                pinecone.init(api_key=self.pinecone_api_key)
-                self.index = pinecone.Index(self.pinecone_index_name)
-                logger.info("Pinecone initialized with legacy client")
-            except Exception as e2:
-                logger.error(f"Legacy Pinecone initialization also failed: {str(e2)}")
-                raise
+            raise
     
     async def download_pdf(self, url: str) -> str:
         """Download PDF from URL and return the file path"""
