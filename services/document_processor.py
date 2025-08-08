@@ -23,8 +23,12 @@ class DocumentProcessor:
         self.pinecone_index_name = os.getenv("PINECONE_INDEX_NAME", "hackrx-documents")
         
         # Initialize sentence transformer for embeddings
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.embedding_dimension = 384  # all-MiniLM-L6-v2 dimension
+        # Use a model that produces embeddings closer to your index dimension (1024)
+        self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
+        self.embedding_dimension = 768  # all-mpnet-base-v2 dimension
+        
+        # Pad embeddings to match Pinecone index dimension (1024)
+        self.pinecone_dimension = 1024
         
         # Initialize text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(
@@ -108,12 +112,21 @@ class DocumentProcessor:
             raise
     
     def create_embeddings(self, chunks: List[str]) -> List[List[float]]:
-        """Create embeddings for chunks using SentenceTransformers"""
+        """Create embeddings for chunks using SentenceTransformers and pad to match Pinecone dimension"""
         try:
             logger.info(f"Creating embeddings for {len(chunks)} chunks")
             embeddings = self.embedding_model.encode(chunks)
-            logger.info(f"Created {len(embeddings)} embeddings")
-            return embeddings.tolist()
+            
+            # Pad embeddings to match Pinecone index dimension (1024)
+            padded_embeddings = []
+            for embedding in embeddings:
+                # Convert to regular float and pad with zeros to reach 1024 dimensions
+                embedding_list = [float(x) for x in embedding]
+                padded = embedding_list + [0.0] * (self.pinecone_dimension - len(embedding_list))
+                padded_embeddings.append(padded)
+            
+            logger.info(f"Created and padded {len(padded_embeddings)} embeddings to dimension {self.pinecone_dimension}")
+            return padded_embeddings
             
         except Exception as e:
             logger.error(f"Error creating embeddings: {str(e)}")
@@ -159,7 +172,7 @@ class DocumentProcessor:
         try:
             # Query for any vector with this document_id
             results = self.index.query(
-                vector=[0.0] * self.embedding_dimension,  # Dummy vector
+                vector=[0.0] * self.pinecone_dimension,  # Dummy vector with correct dimension
                 filter={"document_id": document_id},
                 top_k=1,
                 include_metadata=True

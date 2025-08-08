@@ -8,7 +8,17 @@ load_dotenv()
 
 # Test configuration
 API_BASE_URL = "http://localhost:8000"
-API_KEY = os.getenv("API_KEY", "default_api_key")
+
+# Load environment from hackrx.env file
+if os.path.exists("hackrx.env"):
+    with open("hackrx.env", "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ[key] = value
+
+API_KEY = os.getenv("API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Sample test data based on the requirements

@@ -21,8 +21,9 @@ class QAService:
         self.pinecone_index_name = os.getenv("PINECONE_INDEX_NAME", "hackrx-documents")
         
         # Initialize embeddings model (same as document processor)
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.embedding_dimension = 384
+        self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
+        self.embedding_dimension = 768
+        self.pinecone_dimension = 1024  # Match Pinecone index dimension
         
         # Configure Google Gemini
         genai.configure(api_key=self.google_api_key)
@@ -57,10 +58,13 @@ Instructions:
             raise
     
     def create_question_embedding(self, question: str) -> List[float]:
-        """Create embedding for the question"""
+        """Create embedding for the question and pad to match Pinecone dimension"""
         try:
             embedding = self.embedding_model.encode([question])
-            return embedding[0].tolist()
+            # Convert to regular float and pad with zeros to reach 1024 dimensions
+            embedding_list = [float(x) for x in embedding[0]]
+            padded = embedding_list + [0.0] * (self.pinecone_dimension - len(embedding_list))
+            return padded
         except Exception as e:
             logger.error(f"Error creating question embedding: {str(e)}")
             raise
